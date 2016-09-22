@@ -63,6 +63,7 @@ public class AngelSupport extends AbstractBTLEDeviceSupport {
         addSupportedService(GattService.UUID_SERVICE_DEVICE_INFORMATION);
         addSupportedService(GattService.UUID_SERVICE_BATTERY_SERVICE);
         addSupportedService(GattService.UUID_SERVICE_HEART_RATE);
+        addSupportedService(GattService.UUID_SERVICE_HEALTH_THERMOMETER);
 
         deviceInfoProfile = new DeviceInfoProfile<>(this);
         batteryInfoProfile = new BatteryInfoProfile<>(this);
@@ -88,6 +89,7 @@ public class AngelSupport extends AbstractBTLEDeviceSupport {
         builder.add(new SetDeviceStateAction(getDevice(), GBDevice.State.INITIALIZING, getContext()));
         deviceInfoProfile.requestDeviceInfo(builder);
         builder.notify(getCharacteristic(GattCharacteristic.UUID_CHARACTERISTIC_HEART_RATE_MEASUREMENT), true);
+        builder.notify(getCharacteristic(GattCharacteristic.UUID_CHARACTERISTIC_TEMPERATURE_MEASUREMENT), true);
         builder.add(new SetDeviceStateAction(getDevice(), GBDevice.State.INITIALIZED, getContext()));
         batteryInfoProfile.requestBatteryInfo(builder);
         return builder;
@@ -234,6 +236,9 @@ public class AngelSupport extends AbstractBTLEDeviceSupport {
         if (GattCharacteristic.UUID_CHARACTERISTIC_HEART_RATE_MEASUREMENT.equals(characteristicUUID)) {
             handleHeartRate(characteristic.getValue());
             return true;
+        } else if (GattCharacteristic.UUID_CHARACTERISTIC_TEMPERATURE_MEASUREMENT.equals(characteristicUUID)) {
+            handleTemperature(characteristic);
+            return true;
         }
 
         LOG.info("Unhandled characterstic changed: " + characteristicUUID);
@@ -284,6 +289,15 @@ public class AngelSupport extends AbstractBTLEDeviceSupport {
                     .putExtra(DeviceService.EXTRA_HEART_RATE_VALUE, hrValue)
                     .putExtra(DeviceService.EXTRA_TIMESTAMP, System.currentTimeMillis());
             LocalBroadcastManager.getInstance(getContext()).sendBroadcast(intent);
+        }
+    }
+
+    private void handleTemperature(BluetoothGattCharacteristic characteristic) {
+        if (characteristic.getValue().length >= 5) {
+            int flags = characteristic.getIntValue(BluetoothGattCharacteristic.FORMAT_UINT8, 0);
+            boolean fahrenheit = ((flags & 0x1) == 0x1);
+            float temperature = characteristic.getFloatValue(BluetoothGattCharacteristic.FORMAT_FLOAT, 1);
+            LOG.debug("temperature " + temperature + (fahrenheit ? "F" : "C"));
         }
     }
 }
