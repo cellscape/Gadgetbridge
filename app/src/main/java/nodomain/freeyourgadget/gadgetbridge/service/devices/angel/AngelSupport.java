@@ -22,6 +22,7 @@ import nodomain.freeyourgadget.gadgetbridge.model.Alarm;
 import nodomain.freeyourgadget.gadgetbridge.model.CalendarEventSpec;
 import nodomain.freeyourgadget.gadgetbridge.model.CallSpec;
 import nodomain.freeyourgadget.gadgetbridge.model.CannedMessagesSpec;
+import nodomain.freeyourgadget.gadgetbridge.model.DeviceService;
 import nodomain.freeyourgadget.gadgetbridge.model.MusicSpec;
 import nodomain.freeyourgadget.gadgetbridge.model.MusicStateSpec;
 import nodomain.freeyourgadget.gadgetbridge.model.NotificationSpec;
@@ -61,6 +62,7 @@ public class AngelSupport extends AbstractBTLEDeviceSupport {
         addSupportedService(GattService.UUID_SERVICE_GENERIC_ATTRIBUTE);
         addSupportedService(GattService.UUID_SERVICE_DEVICE_INFORMATION);
         addSupportedService(GattService.UUID_SERVICE_BATTERY_SERVICE);
+        addSupportedService(GattService.UUID_SERVICE_HEART_RATE);
 
         deviceInfoProfile = new DeviceInfoProfile<>(this);
         batteryInfoProfile = new BatteryInfoProfile<>(this);
@@ -85,6 +87,7 @@ public class AngelSupport extends AbstractBTLEDeviceSupport {
     protected TransactionBuilder initializeDevice(TransactionBuilder builder) {
         builder.add(new SetDeviceStateAction(getDevice(), GBDevice.State.INITIALIZING, getContext()));
         deviceInfoProfile.requestDeviceInfo(builder);
+        builder.notify(getCharacteristic(GattCharacteristic.UUID_CHARACTERISTIC_HEART_RATE_MEASUREMENT), true);
         builder.add(new SetDeviceStateAction(getDevice(), GBDevice.State.INITIALIZED, getContext()));
         batteryInfoProfile.requestBatteryInfo(builder);
         return builder;
@@ -228,6 +231,11 @@ public class AngelSupport extends AbstractBTLEDeviceSupport {
         }
 
         UUID characteristicUUID = characteristic.getUuid();
+        if (GattCharacteristic.UUID_CHARACTERISTIC_HEART_RATE_MEASUREMENT.equals(characteristicUUID)) {
+            handleHeartRate(characteristic.getValue());
+            return true;
+        }
+
         LOG.info("Unhandled characterstic changed: " + characteristicUUID);
         logMessageContent(characteristic.getValue());
         return false;
@@ -267,4 +275,15 @@ public class AngelSupport extends AbstractBTLEDeviceSupport {
         handleGBDeviceEvent(versionCmd);
     }
 
+    private void handleHeartRate(byte[] value) {
+        if (value.length >= 2 && value[0] == 0) {
+            int hrValue = value[1];
+            LOG.debug("heart rate: " + hrValue);
+
+            Intent intent = new Intent(DeviceService.ACTION_HEARTRATE_MEASUREMENT)
+                    .putExtra(DeviceService.EXTRA_HEART_RATE_VALUE, hrValue)
+                    .putExtra(DeviceService.EXTRA_TIMESTAMP, System.currentTimeMillis());
+            LocalBroadcastManager.getInstance(getContext()).sendBroadcast(intent);
+        }
+    }
 }

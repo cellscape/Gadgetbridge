@@ -74,7 +74,7 @@ public class AngelCoordinator extends AbstractDeviceCoordinator {
 
     @Override
     public boolean supportsHeartRateMeasurement(GBDevice device) {
-        return false;
+        return true;
     }
 
     @Override
