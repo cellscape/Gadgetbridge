@@ -17,6 +17,7 @@ import java.util.UUID;
 
 import nodomain.freeyourgadget.gadgetbridge.deviceevents.GBDeviceEventBatteryInfo;
 import nodomain.freeyourgadget.gadgetbridge.deviceevents.GBDeviceEventVersionInfo;
+import nodomain.freeyourgadget.gadgetbridge.devices.angel.AngelService;
 import nodomain.freeyourgadget.gadgetbridge.impl.GBDevice;
 import nodomain.freeyourgadget.gadgetbridge.model.Alarm;
 import nodomain.freeyourgadget.gadgetbridge.model.CalendarEventSpec;
@@ -64,6 +65,7 @@ public class AngelSupport extends AbstractBTLEDeviceSupport {
         addSupportedService(GattService.UUID_SERVICE_BATTERY_SERVICE);
         addSupportedService(GattService.UUID_SERVICE_HEART_RATE);
         addSupportedService(GattService.UUID_SERVICE_HEALTH_THERMOMETER);
+        addSupportedService(AngelService.UUID_SERVICE_HEALTH_JOURNAL);
 
         deviceInfoProfile = new DeviceInfoProfile<>(this);
         batteryInfoProfile = new BatteryInfoProfile<>(this);
@@ -91,8 +93,19 @@ public class AngelSupport extends AbstractBTLEDeviceSupport {
         builder.notify(getCharacteristic(GattCharacteristic.UUID_CHARACTERISTIC_HEART_RATE_MEASUREMENT), true);
         builder.notify(getCharacteristic(GattCharacteristic.UUID_CHARACTERISTIC_TEMPERATURE_MEASUREMENT), true);
         builder.add(new SetDeviceStateAction(getDevice(), GBDevice.State.INITIALIZED, getContext()));
+        setupHealthJournal(builder);
         batteryInfoProfile.requestBatteryInfo(builder);
         return builder;
+    }
+
+    private void setupHealthJournal(TransactionBuilder builder) {
+        builder.notify(getCharacteristic(AngelService.UUID_CHARACTERISTIC_HEALTH_JOURNAL_ENTRY), true);
+        builder.notify(getCharacteristic(AngelService.UUID_CHARACTERISTIC_HEALTH_JOURNAL_CONTROL_POINT), true);
+
+        byte[] command = new byte[2];
+        command[0] = AngelService.OP_CODE_QUERY;
+        command[1] = AngelService.OPERATOR_ALL_ENTRIES;
+        builder.write(getCharacteristic(AngelService.UUID_CHARACTERISTIC_HEALTH_JOURNAL_CONTROL_POINT), command);
     }
 
     @Override
